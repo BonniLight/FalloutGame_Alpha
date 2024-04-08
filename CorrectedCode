@@ -1,0 +1,204 @@
+import json
+import random
+#possibly add None to the health and whatnot
+class Survivor:
+    def __init__(self, name, health=10, food=10, money=10, radiation=10):
+        self.name = name
+        self.health = health
+        self.food = food
+        self.money = money
+        self.radiation = radiation
+        self.inventory=[]
+
+    def eat(self, amount):
+        self.food -= amount
+        self.health += amount
+
+    def rest(self, days):
+        self.health += days * 2
+
+    def spend_money(self, amount):
+        self.money -= amount
+
+    def sepcial_ability(self, game_system):
+        pass
+    #This is here to act like a dummy, fixed a issue where there was a atrribute error with special ability.
+
+    with open("items.json","r") as file:
+        items_data=json.load(file)
+        items=items_data["items"]
+#Add an inventory chest that the family can acess only after everyone has taken their turn 
+
+class Family_Members(Survivor):
+    def __init__(self, name, health, food, money):
+        super().__init__(name, health, food, money)
+        self.inventory=[]
+
+    # Add the common special_ability method for all family members
+    def special_ability(self, game_system):
+        pass  # You can implement this method later if needed
+
+class Dad(Family_Members):
+    def find_money(self, game_system):
+        found_money = random.randint(1, 10)
+        print(f"{self.name} found ${found_money}")
+        for member in game_system.players:
+            member.money += found_money // len(game_system.players)
+        print("The money was shared among the family...")
+
+    # Override the special_ability method for Dad
+    def special_ability(self, game_system):
+        if random.random() < 0.3:
+            self.find_money(game_system)
+        super().special_ability(game_system)
+
+class Mom(Family_Members):
+    def special_ability(self, game_system):
+        if random.random() <0.3:
+            found_item=self.find_random_items()
+            print(f"{self.name} found a {found_item['name']} in their travels")
+            self.add_item(found_item)
+        super().special_ability(game_system)
+
+    def find_random_items(self):
+        with open("items.json", "r") as file:
+            items_data=json.load(file)
+            items=items_data["items"]
+            return random.choice(items)
+        
+    def add_item(self, item):
+        print(f"{self.item} add {item['name']} to their backpack")
+        print(f"Type: {item['type']},Effect:{item['effect']}")
+        self.inventory.append(item)
+        
+class Daughter(Family_Members):
+    def special_ability(self, game_system):
+        super().special_ability(game_system)
+
+class Son(Family_Members):
+    def special_ability(self, game_system):
+        super().special_ability(game_system)
+
+    def special_ability_dad(self):
+        super().special_ability_dad()
+        if random.random() < 0.3:
+            found_money = random.randint(1, 10)
+            print(f"{self.name} found {found_money} funds")
+class Gameplay:  
+    def __init__(self, player,game_system):
+        self.player = player
+        self.game_system= game_system
+
+    def player_turn(self):
+        print(f"Current Health: {self.player.health}, Current Food: {self.player.food}, Current Money: {self.player.money}")
+        user_choice = input("Choose an option (1. Eat, 2. Rest, 3. Continue Traveling): ")
+        self.action(user_choice)
+
+    def action(self, user_choice):
+        if user_choice == "1":
+            self.handle_eating()
+        elif user_choice == "2":
+            self.handle_resting()
+        elif user_choice == "3":
+            self.handle_traveling()
+
+        # if self.player.food <= 0 or self.player.health <= 0 or self.player.money <=0:
+        #     print(f"{self.player.name} YOU MESSED UP- Game Over")
+        #     exit()
+            #add a score board and re add it
+
+    def handle_eating(self):
+        food_amount = int(input("Enter the amount of food to eat: "))
+        self.player.eat(food_amount)
+
+    def handle_resting(self):
+        rest_days = int(input("Enter the number of days to rest: "))
+        self.player.rest(rest_days)
+
+    def handle_traveling(self):
+        distance = random.randint(1, 100)
+        travel_days = distance // 20
+        self.player.eat(travel_days * 2)
+        self.player.spend_money(travel_days * 5)
+        print(f"You travel {distance} miles in {travel_days} days...")
+        self.player.special_ability(self.game_system)
+        if isinstance(self.player, Dad):
+            self.player.special_ability(self.game_system)
+        elif isinstance(self.player, Mom):
+            self.player.special_ability(self.game_system)
+        self.drop_items()
+
+        if self.player.food <= 0:
+            print(f"{self.player.name} YOU DIED - Starved")
+        elif self.player.health <= 0:
+            print(f"{self.player.name} YOU DIED - Passed")
+        elif self.player.money <= 0:
+            print(f"{self.player.name} YOU DIED - Went Broke")
+
+    def drop_items_prompt(self):
+        user_input = input("Do you want to drop an item?")
+        return user_input == "y"
+
+    def drop_items(self):
+        if self.drop_items_prompt():
+            print(f"\n{self.player.name}'s items:")
+            for idx, item in enumerate(self.player.inventory):
+                print(f"{idx + 1}. {item['name']} ({item['type']}): {item['effect']}")
+            item_index = int(input("Select the item index to drop: ")) - 1
+            dropped_item = self.player.inventory.pop(item_index)
+            print(f"{self.player.name} dropped {dropped_item['name']}.")  
+class Game_System:
+    def __init__(self, members):
+        self.players = members
+        self.days_in_bunker = 0
+        self.chest = None
+        self.inventory = Base_Inventory(self.players)  # Pass players to Base_Inventory
+
+    def game_beginning(self):
+        print("Welcome to Fallout Don't Die or Lose all your Money!!!")
+        while self.days_in_bunker < 7:
+            self.days_in_bunker += 1
+            print(f"\nDay {self.days_in_bunker}")
+            for player in self.players:
+                print(f"\n{player.name}'s turn:")
+                gameplay = Gameplay(player, self)
+                gameplay.player_turn()
+            self.inventory.check_chest()  
+            if self.inventory.chest:
+                self.inventory.pick_item_from_chest()
+                
+class Base_Inventory:
+    def __init__(self, players):
+        self.chest = None
+        self.players = players  # Assuming you pass players to Base_Inventory
+
+    def check_chest(self):
+        if self.chest:
+            print(f"There is an item in the chest: {self.chest}")
+        else:
+            print("The chest is empty.")
+
+    def put_item_in_chest(self, item):
+        self.chest = item
+        print(f"The mom puts {item} in the chest.")
+
+    def pick_item_from_chest(self):
+        print("A family member can pick an item from the chest.")
+        for player in self.players:
+            print(f"{player.name} can pick the item from the chest.")
+            choice = input("Do you want to pick the item? (yes/no): ").lower()
+            if choice == "yes":
+                player.inventory.append(self.chest)
+                print(f"{player.name} picked {self.chest} from the chest.")
+                self.chest = None
+                break
+if __name__ == "__main__":
+    default_family_members = [
+        Dad("Dad-Bob", 150, 50, 200),
+        Mom("Mom-Joddy", 100, 100, 300),
+        Daughter("Daughter-Sammy", 100, 40, 200),
+        Son("Son-Will", 100, 100, 100)
+    ]
+
+    game_run = Game_System(default_family_members)
+    game_run.game_beginning()
